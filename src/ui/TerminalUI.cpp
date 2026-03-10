@@ -128,17 +128,7 @@ void TerminalUI::renderHand(const Player& p) const {
 // ---------------------------------------------------------------------------
 
 void TerminalUI::autoPhase() {
-    const Phase&  phase  = m_game.state().turnEngine().currentPhase();
-    const Player& active = m_game.state().turnEngine().currentPlayer();
-
-    if (phase.type == PhaseType::Draw) {
-        size_t before = active.hand().size();
-        m_game.state().step();
-        // step() may have advanced to next player; capture draw count before that
-        (void)before;
-    } else {
-        m_game.state().step();
-    }
+    m_game.state().step();
 }
 
 void TerminalUI::interactivePhase() {
@@ -158,11 +148,6 @@ void TerminalUI::interactivePhase() {
         if (input.empty()) continue;
 
         if (input == "end" || input == "e") {
-            // Only allow ending if hand is empty or deck is also empty (no more draws coming)
-            if (!active.hand().empty() && !active.deck().empty()) {
-                message("You still have cards to play. Play them or exhaust your hand first.");
-                continue;
-            }
             m_game.state().step();
             break;
         }

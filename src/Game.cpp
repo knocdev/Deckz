@@ -218,9 +218,9 @@ GameState::WinCondition Game::buildWinCondition(const WinConditionDefinition& de
         std::string resource = def.params.count("resource") ? def.params.at("resource") : "";
         return [result, resource](const GameState& state) -> WinCheckResult {
             for (const auto& p : state.players())
-                if (!p->deck().empty() || !p->hand().empty())
+                if (!p->deck().empty())
                     return {};
-            // All players out of cards — determine outcome
+            // All decks empty — determine outcome
             if (result == "most_resource" && !resource.empty()) {
                 Player* winner = nullptr;
                 int best = std::numeric_limits<int>::min();
