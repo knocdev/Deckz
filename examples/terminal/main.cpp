@@ -29,6 +29,14 @@ int main() {
             return {};
         });
 
+        // --- Win condition: all players out of cards → draw ---
+        game.addWinCondition([](const engine::GameState& state) -> engine::WinCheckResult {
+            for (const auto& p : state.players())
+                if (!p->deck().empty() || !p->hand().empty())
+                    return {};
+            return { true, nullptr }; // draw
+        });
+
         // --- Players ---
         // 10 Fireballs each (cost 3, deal 5 damage)
         std::vector<std::string> aliceDeck(10, "fireball");

@@ -12,7 +12,7 @@ TurnEngine::TurnEngine(std::vector<Phase> phases, std::vector<Player*> players)
         throw std::invalid_argument("TurnEngine requires at least one player");
 
     // Fire the first turn/phase start events
-    if (m_onTurnStart) m_onTurnStart(*m_players[0], m_turnNumber);
+    for (auto& cb : m_onTurnStart) cb(*m_players[0], m_turnNumber);
     firePhaseStart();
 }
 
@@ -49,7 +49,7 @@ void TurnEngine::advancePhase() {
 
     // End of this player's turn
     if (m_phaseIndex >= m_phases.size()) {
-        if (m_onTurnEnd) m_onTurnEnd(currentPlayer(), m_turnNumber);
+        for (auto& cb : m_onTurnEnd) cb(currentPlayer(), m_turnNumber);
 
         m_phaseIndex = 0;
         m_playerIndex = (m_playerIndex + 1) % m_players.size();
@@ -57,7 +57,7 @@ void TurnEngine::advancePhase() {
         // All players have gone — new round
         if (m_playerIndex == 0) m_turnNumber++;
 
-        if (m_onTurnStart) m_onTurnStart(currentPlayer(), m_turnNumber);
+        for (auto& cb : m_onTurnStart) cb(currentPlayer(), m_turnNumber);
     }
 
     firePhaseStart();
@@ -68,13 +68,13 @@ void TurnEngine::advancePhase() {
 // ---------------------------------------------------------------------------
 
 void TurnEngine::firePhaseStart() {
-    if (m_onPhaseStart)
-        m_onPhaseStart({ currentPhase(), currentPlayer(), m_turnNumber });
+    for (auto& cb : m_onPhaseStart)
+        cb({ currentPhase(), currentPlayer(), m_turnNumber });
 }
 
 void TurnEngine::firePhaseEnd() {
-    if (m_onPhaseEnd)
-        m_onPhaseEnd({ currentPhase(), currentPlayer(), m_turnNumber });
+    for (auto& cb : m_onPhaseEnd)
+        cb({ currentPhase(), currentPlayer(), m_turnNumber });
 }
 
 } // namespace engine
