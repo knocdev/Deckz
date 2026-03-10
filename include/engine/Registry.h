@@ -3,6 +3,7 @@
 #include "CardType.h"
 #include "DeckType.h"
 #include "Deck.h"
+#include "Effect.h"
 #include "Phase.h"
 #include <unordered_map>
 #include <vector>
@@ -27,7 +28,9 @@ public:
     // --- Type accessors ---
     const CardType& cardType(const std::string& name) const;
     const DeckType& deckType(const std::string& name) const;
-    const std::vector<Phase>& phases() const { return m_phases; }
+    const std::vector<Phase>&           phases()           const { return m_phases; }
+    const std::vector<EffectDefinition>& turnStartEffects() const { return m_turnStartEffects; }
+    const std::vector<EffectDefinition>& turnEndEffects()   const { return m_turnEndEffects; }
 
     bool hasCardType(const std::string& name) const;
     bool hasDeckType(const std::string& name) const;
@@ -48,7 +51,9 @@ private:
     std::unordered_map<std::string, CardType>       m_cardTypes;
     std::unordered_map<std::string, DeckType>       m_deckTypes;
     std::unordered_map<std::string, CardDefinition> m_cardDefinitions;
-    std::vector<Phase> m_phases;
+    std::vector<Phase>           m_phases;
+    std::vector<EffectDefinition> m_turnStartEffects;
+    std::vector<EffectDefinition> m_turnEndEffects;
 };
 
 } // namespace engine

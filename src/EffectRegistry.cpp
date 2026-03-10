@@ -44,6 +44,7 @@ void EffectRegistry::registerBuiltins() {
     registerEffect("draw_cards",    Effects::drawCards());
     registerEffect("gain_resource", Effects::gainResource());
     registerEffect("lose_resource", Effects::loseResource());
+    registerEffect("set_resource",  Effects::setResource());
 }
 
 // ---------------------------------------------------------------------------
@@ -99,6 +100,17 @@ EffectFactory loseResource() {
             int amount  = resolveInt(amountStr, ctx.card);
             int current = ctx.source->hasResource(resource) ? ctx.source->getResource(resource) : 0;
             ctx.source->setResource(resource, current - amount);
+        };
+    };
+}
+
+EffectFactory setResource() {
+    return [](const EffectParams& params) -> EffectFn {
+        std::string resource = params.at("resource");
+        std::string valueStr = params.at("value");
+        return [resource, valueStr](EffectContext& ctx) {
+            int value = resolveInt(valueStr, ctx.card);
+            ctx.source->setResource(resource, value);
         };
     };
 }

@@ -45,6 +45,17 @@ static std::string jsonToParamString(const json& j) {
 // Parsing
 // ---------------------------------------------------------------------------
 
+static EffectDefinition parseEffectDef(const json& eff) {
+    EffectDefinition def;
+    def.typeName = eff.at("type").get<std::string>();
+    if (eff.contains("trigger"))
+        def.trigger = effectTriggerFromString(eff.at("trigger").get<std::string>());
+    if (eff.contains("params"))
+        for (const auto& [k, v] : eff["params"].items())
+            def.params[k] = jsonToParamString(v);
+    return def;
+}
+
 static void parseCardTypes(const json& j,
                             std::unordered_map<std::string, CardType>& out) {
     for (const auto& ct : j) {
@@ -64,22 +75,17 @@ static void parseCardTypes(const json& j,
             }
         }
 
-        if (ct.contains("effects")) {
-            for (const auto& eff : ct["effects"]) {
-                EffectDefinition def;
-                def.typeName = eff.at("type").get<std::string>();
-                def.trigger  = effectTriggerFromString(eff.at("trigger").get<std::string>());
-                if (eff.contains("params")) {
-                    for (const auto& [k, v] : eff["params"].items()) {
-                        def.params[k] = jsonToParamString(v);
-                    }
-                }
-                cardType.addEffect(std::move(def));
-            }
-        }
+        if (ct.contains("effects"))
+            for (const auto& eff : ct["effects"])
+                cardType.addEffect(parseEffectDef(eff));
 
         out.emplace(name, std::move(cardType));
     }
+}
+
+static void parseTurnEffects(const json& j, std::vector<EffectDefinition>& out) {
+    for (const auto& eff : j)
+        out.push_back(parseEffectDef(eff));
 }
 
 static void parseDeckTypes(const json& j,
@@ -151,10 +157,12 @@ void Registry::loadFromFile(const std::string& path) {
     json j;
     file >> j;
 
-    if (j.contains("card_types"))  parseCardTypes(j["card_types"], m_cardTypes);
-    if (j.contains("deck_types"))  parseDeckTypes(j["deck_types"], m_deckTypes);
-    if (j.contains("phases"))      parsePhases(j["phases"], m_phases);
-    if (j.contains("cards"))       parseCards(j["cards"], m_cardTypes, m_cardDefinitions);
+    if (j.contains("card_types"))         parseCardTypes(j["card_types"], m_cardTypes);
+    if (j.contains("deck_types"))         parseDeckTypes(j["deck_types"], m_deckTypes);
+    if (j.contains("phases"))             parsePhases(j["phases"], m_phases);
+    if (j.contains("cards"))             parseCards(j["cards"], m_cardTypes, m_cardDefinitions);
+    if (j.contains("turn_start_effects")) parseTurnEffects(j["turn_start_effects"], m_turnStartEffects);
+    if (j.contains("turn_end_effects"))   parseTurnEffects(j["turn_end_effects"],   m_turnEndEffects);
 }
 
 const CardType& Registry::cardType(const std::string& name) const {

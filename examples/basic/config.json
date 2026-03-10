@@ -54,5 +54,9 @@
     { "name": "Main",   "type": "action"                  },
     { "name": "Combat", "type": "combat"                  },
     { "name": "End",    "type": "end"                     }
+  ],
+
+  "turn_start_effects": [
+    { "type": "set_resource", "params": { "resource": "mana", "value": 10 } }
   ]
 }

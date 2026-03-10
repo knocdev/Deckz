@@ -56,11 +56,6 @@ int main() {
         bob->setResource("health",   20);
         bob->setResource("mana",     10);
 
-        // --- Refill mana at the start of each player's turn ---
-        game.state().turnEngine().onTurnStart([](engine::Player& p, int) {
-            p.setResource("mana", 10);
-        });
-
         // --- Run ---
         ui::TerminalUI terminal(game);
         terminal.run();

@@ -1,6 +1,7 @@
 #include "engine/Game.h"
 #include "engine/EffectContext.h"
 #include "engine/CardType.h"
+#include "engine/TurnEngine.h"
 #include <stdexcept>
 
 namespace engine {
@@ -41,6 +42,23 @@ void Game::start() {
 
     for (auto& cond : m_winConditions)
         m_state->addWinCondition(cond);
+
+    auto registerTurnEffects = [&](const std::vector<EffectDefinition>& defs,
+                                   auto registerFn) {
+        if (defs.empty()) return;
+        (m_state->turnEngine().*registerFn)([this, defs](Player& p, int) {
+            Player* opp = findOpponent(&p);
+            EffectContext ctx{ *m_state, &p, nullptr, opp };
+            for (const auto& def : defs) {
+                if (!m_effectRegistry.has(def.typeName)) continue;
+                auto fn = m_effectRegistry.create(def);
+                fn(ctx);
+            }
+        });
+    };
+
+    registerTurnEffects(m_registry.turnStartEffects(), &TurnEngine::onTurnStart);
+    registerTurnEffects(m_registry.turnEndEffects(),   &TurnEngine::onTurnEnd);
 }
 
 ValidationResult Game::submitAction(const Action& action) {
