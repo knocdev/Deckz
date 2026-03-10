@@ -6,3 +6,4 @@ build/
 *.obj
 .cache/
 compile_commands.json
+cmake_test_discovery_*.json
