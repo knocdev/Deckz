@@ -10,6 +10,11 @@
       "effects": [
         {
           "trigger": "on_play",
+          "type": "lose_resource",
+          "params": { "resource": "mana", "amount": "attr:cost" }
+        },
+        {
+          "trigger": "on_play",
           "type": "deal_damage",
           "params": { "target": "opponent", "amount": "attr:damage" }
         }
@@ -36,9 +41,9 @@
   ],
 
   "phases": [
-    { "name": "Draw", "type": "draw",   "draw_count": 1 },
-    { "name": "Main", "type": "action"                  },
-    { "name": "End",  "type": "end"                     }
+    { "name": "Draw", "type": "draw",   "draw_count": 1                        },
+    { "name": "Main", "type": "action", "skip_if_hand_empty": true             },
+    { "name": "End",  "type": "end"                                            }
   ],
 
   "turn_start_effects": [
@@ -76,6 +81,15 @@
       { "type": "hand_index_in_range"                        },
       { "type": "has_enough_resource", "resource": "mana", "cost_attribute": "cost" }
     ]
+  },
+
+  "actions": {
+    "play_card": {
+      "effects": [
+        { "type": "trigger_card_effects", "params": { "trigger": "on_play" } },
+        { "type": "remove_from_hand" }
+      ]
+    }
   },
 
   "win_conditions": [

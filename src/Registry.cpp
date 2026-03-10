@@ -133,6 +133,14 @@ static void parseRules(const json& j,
     }
 }
 
+static void parseActions(const json& j,
+                          std::unordered_map<std::string, std::vector<EffectDefinition>>& out) {
+    for (const auto& [actionName, def] : j.items())
+        if (def.contains("effects"))
+            for (const auto& eff : def["effects"])
+                out[actionName].push_back(parseEffectDef(eff));
+}
+
 static void parseWinConditions(const json& j, std::vector<WinConditionDefinition>& out) {
     for (const auto& w : j) {
         WinConditionDefinition def;
@@ -169,6 +177,8 @@ static void parsePhases(const json& j, std::vector<Phase>& out) {
         phase.type = phaseTypeFromString(p.at("type").get<std::string>());
         if (p.contains("draw_count"))
             phase.drawCount = p["draw_count"].get<int>();
+        if (p.contains("skip_if_hand_empty"))
+            phase.skipIfHandEmpty = p["skip_if_hand_empty"].get<bool>();
         out.push_back(std::move(phase));
     }
 }
@@ -223,12 +233,19 @@ void Registry::loadFromFile(const std::string& path) {
     if (j.contains("players"))           parsePlayers(j["players"], m_players);
     if (j.contains("rules"))             parseRules(j["rules"], m_globalRules, m_actionRules);
     if (j.contains("win_conditions"))    parseWinConditions(j["win_conditions"], m_winConditions);
+    if (j.contains("actions"))           parseActions(j["actions"], m_actionEffects);
 }
 
 const std::vector<RuleDefinition>& Registry::actionRules(const std::string& actionType) const {
     static const std::vector<RuleDefinition> empty;
     auto it = m_actionRules.find(actionType);
     return it != m_actionRules.end() ? it->second : empty;
+}
+
+const std::vector<EffectDefinition>& Registry::actionEffects(const std::string& actionType) const {
+    static const std::vector<EffectDefinition> empty;
+    auto it = m_actionEffects.find(actionType);
+    return it != m_actionEffects.end() ? it->second : empty;
 }
 
 const CardType& Registry::cardType(const std::string& name) const {

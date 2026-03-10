@@ -19,6 +19,11 @@
       "effects": [
         {
           "trigger": "on_play",
+          "type": "lose_resource",
+          "params": { "resource": "mana", "amount": "attr:cost" }
+        },
+        {
+          "trigger": "on_play",
           "type": "deal_damage",
           "params": { "target": "opponent", "amount": "attr:damage" }
         }
@@ -48,6 +53,15 @@
       "max_copies": 4
     }
   ],
+
+  "actions": {
+    "play_card": {
+      "effects": [
+        { "type": "trigger_card_effects", "params": { "trigger": "on_play" } },
+        { "type": "remove_from_hand" }
+      ]
+    }
+  },
 
   "phases": [
     { "name": "Draw",   "type": "draw",   "draw_count": 1 },

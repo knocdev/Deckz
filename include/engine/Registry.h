@@ -53,8 +53,9 @@ public:
     const std::vector<WinConditionDefinition>& winConditions()  const { return m_winConditions; }
 
     // rules["global"] and rules["play_card"] etc. — empty if not in JSON
-    const std::vector<RuleDefinition>& globalRules()               const { return m_globalRules; }
-    const std::vector<RuleDefinition>& actionRules(const std::string& actionType) const;
+    const std::vector<RuleDefinition>&   globalRules()                                const { return m_globalRules; }
+    const std::vector<RuleDefinition>&   actionRules(const std::string& actionType)   const;
+    const std::vector<EffectDefinition>& actionEffects(const std::string& actionType) const;
 
     bool hasCardType(const std::string& name) const;
     bool hasDeckType(const std::string& name) const;
@@ -81,7 +82,8 @@ private:
     std::vector<PlayerDefinition>  m_players;
     std::vector<WinConditionDefinition> m_winConditions;
     std::vector<RuleDefinition>    m_globalRules;
-    std::unordered_map<std::string, std::vector<RuleDefinition>> m_actionRules;
+    std::unordered_map<std::string, std::vector<RuleDefinition>>   m_actionRules;
+    std::unordered_map<std::string, std::vector<EffectDefinition>> m_actionEffects;
 };
 
 } // namespace engine

@@ -132,15 +132,8 @@ void TerminalUI::autoPhase() {
 }
 
 void TerminalUI::interactivePhase() {
-    Player& active = m_game.state().turnEngine().currentPlayer();
-
-    // Nothing to do — skip the phase automatically
-    if (active.hand().size() == 0) {
-        m_game.state().step();
-        return;
-    }
-
     render();
+    Player& active = m_game.state().turnEngine().currentPlayer();
     std::cout << "  Commands:  play <n>   end\n";
 
     while (!m_game.isOver()) {
@@ -177,11 +170,6 @@ void TerminalUI::interactivePhase() {
                 m_playedThisTurn.push_back(active.name() + " played: " + played);
 
             if (m_game.isOver()) break;
-
-            if (active.hand().size() == 0) {
-                m_game.state().step();
-                break;
-            }
 
             render();
             std::cout << "  Commands:  play <n>   end\n";

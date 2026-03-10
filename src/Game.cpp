@@ -11,6 +11,29 @@ namespace engine {
 Game::Game(const std::string& configPath) {
     m_registry.loadFromFile(configPath);
     m_effectRegistry.registerBuiltins();
+
+    // trigger_card_effects: fires a card's own effects for the given trigger
+    m_effectRegistry.registerEffect("trigger_card_effects",
+        [this](const EffectParams& params) -> EffectFn {
+            std::string triggerStr = params.count("trigger") ? params.at("trigger") : "on_play";
+            EffectTrigger trigger = effectTriggerFromString(triggerStr);
+            return [this, trigger](EffectContext& ctx) {
+                if (!ctx.card) return;
+                for (const auto& def : ctx.card->type().effects()) {
+                    if (def.trigger != trigger) continue;
+                    if (!m_effectRegistry.has(def.typeName)) continue;
+                    m_effectRegistry.create(def)(ctx);
+                }
+            };
+        });
+
+    // remove_from_hand: removes the card at handIndex from source's hand
+    m_effectRegistry.registerEffect("remove_from_hand",
+        [](const EffectParams&) -> EffectFn {
+            return [](EffectContext& ctx) {
+                if (ctx.source) ctx.source->hand().removeCard(ctx.handIndex);
+            };
+        });
 }
 
 void Game::registerEffect(const std::string& typeName, EffectFactory factory) {
@@ -94,6 +117,16 @@ void Game::start() {
     registerTurnEffects(m_registry.turnEndEffects(),   &TurnEngine::onTurnEnd);
 }
 
+static std::string actionTypeName(ActionType t) {
+    switch (t) {
+        case ActionType::PlayCard: return "play_card";
+        case ActionType::Attack:   return "attack";
+        case ActionType::EndPhase: return "end_phase";
+        case ActionType::Custom:   return "custom";
+    }
+    return "unknown";
+}
+
 ValidationResult Game::submitAction(const Action& action) {
     if (!m_state)
         throw std::runtime_error("Game::submitAction called before start()");
@@ -101,12 +134,20 @@ ValidationResult Game::submitAction(const Action& action) {
     auto result = m_validator.validate(action, *m_state);
     if (!result) return result;
 
-    if (action.type == ActionType::PlayCard) {
-        Action mutableAction = action;
-        executePlayCard(mutableAction);
-        m_state->checkWinConditions();
+    // Look up the card before effects run (effects may remove it from hand)
+    std::shared_ptr<Card> cardRef;
+    if (action.actor && action.handIndex < action.actor->hand().size())
+        cardRef = action.actor->hand().cards()[action.handIndex];
+
+    Player* opp = findOpponent(action.actor);
+    EffectContext ctx{ *m_state, action.actor, cardRef.get(), opp, action.handIndex };
+
+    for (const auto& def : m_registry.actionEffects(actionTypeName(action.type))) {
+        if (!m_effectRegistry.has(def.typeName)) continue;
+        m_effectRegistry.create(def)(ctx);
     }
 
+    m_state->checkWinConditions();
     return ValidationResult::ok();
 }
 
@@ -127,39 +168,6 @@ bool Game::isOver() const {
 // ---------------------------------------------------------------------------
 // Private
 // ---------------------------------------------------------------------------
-
-void Game::executePlayCard(Action& action) {
-    const auto& hand  = action.actor->hand().cards();
-    Card* card        = hand[action.handIndex].get();
-    const CardType& ct = card->type();
-
-    // Deduct mana cost if the card has a "cost" attribute and actor has "mana"
-    if (ct.hasAttribute("cost") && action.actor->hasResource("mana")) {
-        int cost = std::get<int>(card->getAttribute("cost"));
-        action.actor->setResource("mana",
-            action.actor->getResource("mana") - cost);
-    }
-
-    // Trigger OnPlay effects before removing the card (so ctx.card is valid)
-    triggerEffects(EffectTrigger::OnPlay, action.actor, card);
-
-    // Remove the card from hand
-    action.actor->hand().removeCard(action.handIndex);
-}
-
-void Game::triggerEffects(EffectTrigger trigger, Player* actor, Card* card) {
-    if (!card) return;
-
-    Player* opp = findOpponent(actor);
-    EffectContext ctx{ *m_state, actor, card, opp };
-
-    for (const auto& def : card->type().effects()) {
-        if (def.trigger != trigger) continue;
-        if (!m_effectRegistry.has(def.typeName)) continue;
-        auto fn = m_effectRegistry.create(def);
-        fn(ctx);
-    }
-}
 
 Player* Game::findOpponent(Player* actor) const {
     for (const auto& p : m_state->players())

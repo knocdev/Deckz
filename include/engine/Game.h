@@ -53,12 +53,10 @@ private:
     std::vector<GameState::WinCondition> m_winConditions;
     std::unique_ptr<GameState>           m_state;
 
-    void executePlayCard(Action& action);
-    void triggerEffects(EffectTrigger trigger, Player* actor, Card* card = nullptr);
     Player* findOpponent(Player* actor) const;
 
-    ActionValidator::Rule      buildRule(const RuleDefinition& def) const;
-    GameState::WinCondition    buildWinCondition(const WinConditionDefinition& def) const;
+    ActionValidator::Rule   buildRule(const RuleDefinition& def) const;
+    GameState::WinCondition buildWinCondition(const WinConditionDefinition& def) const;
 };
 
 } // namespace engine
