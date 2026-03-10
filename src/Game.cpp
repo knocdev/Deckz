@@ -2,6 +2,7 @@
 #include "engine/EffectContext.h"
 #include "engine/CardType.h"
 #include "engine/TurnEngine.h"
+#include "engine/Phase.h"
 #include <stdexcept>
 
 namespace engine {
@@ -26,12 +27,17 @@ void Game::addPlayer(const std::string& playerName,
 }
 
 void Game::start() {
-    if (m_playerSetups.empty())
+    // Merge JSON players with any programmatically added ones
+    auto allSetups = m_playerSetups;
+    for (const auto& pd : m_registry.players())
+        allSetups.push_back({ pd.name, pd.deckTypeName, pd.cardIds });
+
+    if (allSetups.empty())
         throw std::runtime_error("Game::start() called with no players");
 
     std::vector<std::unique_ptr<Player>> players;
 
-    for (const auto& setup : m_playerSetups) {
+    for (const auto& setup : allSetups) {
         auto deck = m_registry.createDeck(setup.name + "_deck", setup.deckTypeName);
         for (const auto& cardId : setup.cardIds)
             deck->addCard(m_registry.createCard(cardId, m_registry.cardIdToTypeName(cardId)));
@@ -40,8 +46,34 @@ void Game::start() {
 
     m_state = std::make_unique<GameState>(std::move(players), m_registry.phases());
 
+    // Apply starting resources from JSON player definitions
+    for (const auto& pd : m_registry.players()) {
+        Player* p = m_state->findPlayer(pd.name);
+        if (!p) continue;
+        for (const auto& [res, val] : pd.startingResources)
+            p->setResource(res, val);
+    }
+
+    // Programmatic win conditions
     for (auto& cond : m_winConditions)
         m_state->addWinCondition(cond);
+
+    // JSON win conditions
+    for (const auto& def : m_registry.winConditions())
+        m_state->addWinCondition(buildWinCondition(def));
+
+    // JSON global rules
+    for (const auto& def : m_registry.globalRules())
+        m_validator.addGlobalRule(buildRule(def));
+
+    // JSON per-action rules — map JSON action name → ActionType
+    auto applyActionRules = [&](const std::string& name, ActionType type) {
+        for (const auto& def : m_registry.actionRules(name))
+            m_validator.addRule(type, buildRule(def));
+    };
+    applyActionRules("play_card", ActionType::PlayCard);
+    applyActionRules("attack",    ActionType::Attack);
+    applyActionRules("end_phase", ActionType::EndPhase);
 
     auto registerTurnEffects = [&](const std::vector<EffectDefinition>& defs,
                                    auto registerFn) {
@@ -132,6 +164,64 @@ Player* Game::findOpponent(Player* actor) const {
     for (const auto& p : m_state->players())
         if (p.get() != actor) return p.get();
     return nullptr;
+}
+
+// ---------------------------------------------------------------------------
+// JSON rule / win-condition factories
+// ---------------------------------------------------------------------------
+
+ActionValidator::Rule Game::buildRule(const RuleDefinition& def) const {
+    if (def.typeName == "actor_not_null")      return Rules::actorNotNull();
+    if (def.typeName == "is_current_player")   return Rules::isCurrentPlayer();
+    if (def.typeName == "hand_index_in_range") return Rules::handIndexInRange();
+
+    if (def.typeName == "phase_type") {
+        std::vector<PhaseType> types;
+        std::string allowed = def.params.at("allowed");
+        // split comma-joined string
+        std::string token;
+        for (char c : allowed + ',') {
+            if (c == ',') { if (!token.empty()) types.push_back(phaseTypeFromString(token)); token.clear(); }
+            else token += c;
+        }
+        return Rules::phaseIsOneOf(std::move(types));
+    }
+
+    if (def.typeName == "has_enough_resource")
+        return Rules::hasEnoughResource(def.params.at("resource"),
+                                         def.params.at("cost_attribute"));
+
+    throw std::runtime_error("Unknown rule type: " + def.typeName);
+}
+
+GameState::WinCondition Game::buildWinCondition(const WinConditionDefinition& def) const {
+    if (def.typeName == "resource_depleted") {
+        std::string resource = def.params.at("resource");
+        std::string result   = def.params.count("result") ? def.params.at("result") : "opponent_wins";
+        return [resource, result](const GameState& state) -> WinCheckResult {
+            for (const auto& p : state.players()) {
+                if (p->hasResource(resource) && p->getResource(resource) <= 0) {
+                    if (result == "draw") return { true, nullptr };
+                    for (const auto& other : state.players())
+                        if (other.get() != p.get())
+                            return { true, other.get() };
+                    return { true, nullptr };
+                }
+            }
+            return {};
+        };
+    }
+
+    if (def.typeName == "cards_exhausted") {
+        return [](const GameState& state) -> WinCheckResult {
+            for (const auto& p : state.players())
+                if (!p->deck().empty() || !p->hand().empty())
+                    return {};
+            return { true, nullptr }; // draw
+        };
+    }
+
+    throw std::runtime_error("Unknown win condition type: " + def.typeName);
 }
 
 } // namespace engine

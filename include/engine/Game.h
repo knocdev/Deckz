@@ -56,6 +56,9 @@ private:
     void executePlayCard(Action& action);
     void triggerEffects(EffectTrigger trigger, Player* actor, Card* card = nullptr);
     Player* findOpponent(Player* actor) const;
+
+    ActionValidator::Rule      buildRule(const RuleDefinition& def) const;
+    GameState::WinCondition    buildWinCondition(const WinConditionDefinition& def) const;
 };
 
 } // namespace engine

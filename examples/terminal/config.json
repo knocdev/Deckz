@@ -1,0 +1,85 @@
+{
+  "card_types": [
+    {
+      "name": "Spell",
+      "attributes": {
+        "name":   { "type": "string", "default": ""  },
+        "cost":   { "type": "int",    "default": 0   },
+        "damage": { "type": "int",    "default": 0   }
+      },
+      "effects": [
+        {
+          "trigger": "on_play",
+          "type": "deal_damage",
+          "params": { "target": "opponent", "amount": "attr:damage" }
+        }
+      ]
+    }
+  ],
+
+  "cards": [
+    {
+      "id": "fireball",
+      "type": "Spell",
+      "attributes": { "name": "Fireball", "cost": 3, "damage": 5 }
+    }
+  ],
+
+  "deck_types": [
+    {
+      "name": "StandardDeck",
+      "allowed_card_types": ["Spell"],
+      "min_cards": 1,
+      "max_cards": 60,
+      "max_copies": 60
+    }
+  ],
+
+  "phases": [
+    { "name": "Draw", "type": "draw",   "draw_count": 1 },
+    { "name": "Main", "type": "action"                  },
+    { "name": "End",  "type": "end"                     }
+  ],
+
+  "turn_start_effects": [
+    { "type": "set_resource", "params": { "resource": "mana", "value": 10 } }
+  ],
+
+  "players": [
+    {
+      "name": "Alice",
+      "deck_type": "StandardDeck",
+      "cards": [
+        "fireball", "fireball", "fireball", "fireball", "fireball",
+        "fireball", "fireball", "fireball", "fireball", "fireball"
+      ],
+      "starting_resources": { "health": 20, "mana": 10 }
+    },
+    {
+      "name": "Bob",
+      "deck_type": "StandardDeck",
+      "cards": [
+        "fireball", "fireball", "fireball", "fireball", "fireball",
+        "fireball", "fireball", "fireball", "fireball", "fireball"
+      ],
+      "starting_resources": { "health": 20, "mana": 10 }
+    }
+  ],
+
+  "rules": {
+    "global": [
+      { "type": "actor_not_null" },
+      { "type": "is_current_player" }
+    ],
+    "play_card": [
+      { "type": "phase_type",          "allowed": ["action"] },
+      { "type": "hand_index_in_range"                        },
+      { "type": "has_enough_resource", "resource": "mana", "cost_attribute": "cost" }
+    ]
+  },
+
+  "win_conditions": [
+    { "type": "resource_depleted", "resource": "health", "result": "opponent_wins" },
+    { "type": "cards_exhausted",                         "result": "draw"          }
+  ]
+}

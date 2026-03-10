@@ -88,6 +88,63 @@ static void parseTurnEffects(const json& j, std::vector<EffectDefinition>& out) 
         out.push_back(parseEffectDef(eff));
 }
 
+static void parsePlayers(const json& j, std::vector<PlayerDefinition>& out) {
+    for (const auto& p : j) {
+        PlayerDefinition def;
+        def.name         = p.at("name").get<std::string>();
+        def.deckTypeName = p.at("deck_type").get<std::string>();
+        def.cardIds      = p.at("cards").get<std::vector<std::string>>();
+        if (p.contains("starting_resources"))
+            for (const auto& [k, v] : p["starting_resources"].items())
+                def.startingResources[k] = v.get<int>();
+        out.push_back(std::move(def));
+    }
+}
+
+static RuleDefinition parseRuleDef(const json& r) {
+    RuleDefinition def;
+    def.typeName = r.at("type").get<std::string>();
+    if (r.contains("allowed")) {
+        // join array of strings as comma-separated
+        std::string joined;
+        for (const auto& s : r["allowed"]) {
+            if (!joined.empty()) joined += ',';
+            joined += s.get<std::string>();
+        }
+        def.params["allowed"] = joined;
+    }
+    for (const auto& [k, v] : r.items()) {
+        if (k == "type" || k == "allowed") continue;
+        def.params[k] = jsonToParamString(v);
+    }
+    return def;
+}
+
+static void parseRules(const json& j,
+                        std::vector<RuleDefinition>& globalOut,
+                        std::unordered_map<std::string, std::vector<RuleDefinition>>& actionOut) {
+    if (j.contains("global"))
+        for (const auto& r : j["global"])
+            globalOut.push_back(parseRuleDef(r));
+    for (const auto& [key, arr] : j.items()) {
+        if (key == "global") continue;
+        for (const auto& r : arr)
+            actionOut[key].push_back(parseRuleDef(r));
+    }
+}
+
+static void parseWinConditions(const json& j, std::vector<WinConditionDefinition>& out) {
+    for (const auto& w : j) {
+        WinConditionDefinition def;
+        def.typeName = w.at("type").get<std::string>();
+        for (const auto& [k, v] : w.items()) {
+            if (k == "type") continue;
+            def.params[k] = jsonToParamString(v);
+        }
+        out.push_back(std::move(def));
+    }
+}
+
 static void parseDeckTypes(const json& j,
                             std::unordered_map<std::string, DeckType>& out) {
     for (const auto& dt : j) {
@@ -163,6 +220,15 @@ void Registry::loadFromFile(const std::string& path) {
     if (j.contains("cards"))             parseCards(j["cards"], m_cardTypes, m_cardDefinitions);
     if (j.contains("turn_start_effects")) parseTurnEffects(j["turn_start_effects"], m_turnStartEffects);
     if (j.contains("turn_end_effects"))   parseTurnEffects(j["turn_end_effects"],   m_turnEndEffects);
+    if (j.contains("players"))           parsePlayers(j["players"], m_players);
+    if (j.contains("rules"))             parseRules(j["rules"], m_globalRules, m_actionRules);
+    if (j.contains("win_conditions"))    parseWinConditions(j["win_conditions"], m_winConditions);
+}
+
+const std::vector<RuleDefinition>& Registry::actionRules(const std::string& actionType) const {
+    static const std::vector<RuleDefinition> empty;
+    auto it = m_actionRules.find(actionType);
+    return it != m_actionRules.end() ? it->second : empty;
 }
 
 const CardType& Registry::cardType(const std::string& name) const {
