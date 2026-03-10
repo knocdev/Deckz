@@ -4,6 +4,7 @@
 #include "engine/TurnEngine.h"
 #include "engine/Phase.h"
 #include <stdexcept>
+#include <limits>
 
 namespace engine {
 
@@ -213,10 +214,26 @@ GameState::WinCondition Game::buildWinCondition(const WinConditionDefinition& de
     }
 
     if (def.typeName == "cards_exhausted") {
-        return [](const GameState& state) -> WinCheckResult {
+        std::string result   = def.params.count("result")   ? def.params.at("result")   : "draw";
+        std::string resource = def.params.count("resource") ? def.params.at("resource") : "";
+        return [result, resource](const GameState& state) -> WinCheckResult {
             for (const auto& p : state.players())
                 if (!p->deck().empty() || !p->hand().empty())
                     return {};
+            // All players out of cards — determine outcome
+            if (result == "most_resource" && !resource.empty()) {
+                Player* winner = nullptr;
+                int best = std::numeric_limits<int>::min();
+                bool tied = false;
+                for (const auto& p : state.players()) {
+                    if (!p->hasResource(resource)) continue;
+                    int val = p->getResource(resource);
+                    if (val > best) { best = val; winner = p.get(); tied = false; }
+                    else if (val == best) { tied = true; }
+                }
+                if (tied) return { true, nullptr };
+                return { true, winner };
+            }
             return { true, nullptr }; // draw
         };
     }

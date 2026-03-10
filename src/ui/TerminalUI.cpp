@@ -158,6 +158,11 @@ void TerminalUI::interactivePhase() {
         if (input.empty()) continue;
 
         if (input == "end" || input == "e") {
+            // Only allow ending if hand is empty or deck is also empty (no more draws coming)
+            if (!active.hand().empty() && !active.deck().empty()) {
+                message("You still have cards to play. Play them or exhaust your hand first.");
+                continue;
+            }
             m_game.state().step();
             break;
         }

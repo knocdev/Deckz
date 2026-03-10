@@ -80,6 +80,6 @@
 
   "win_conditions": [
     { "type": "resource_depleted", "resource": "health", "result": "opponent_wins" },
-    { "type": "cards_exhausted",                         "result": "draw"          }
+    { "type": "cards_exhausted", "result": "most_resource", "resource": "health"    }
   ]
 }
