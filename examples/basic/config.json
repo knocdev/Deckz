@@ -1,0 +1,58 @@
+{
+  "card_types": [
+    {
+      "name": "Creature",
+      "attributes": {
+        "name":    { "type": "string", "default": "" },
+        "attack":  { "type": "int",    "default": 0  },
+        "defense": { "type": "int",    "default": 0  },
+        "cost":    { "type": "int",    "default": 0  }
+      }
+    },
+    {
+      "name": "Spell",
+      "attributes": {
+        "name":   { "type": "string", "default": ""    },
+        "cost":   { "type": "int",    "default": 0     },
+        "damage": { "type": "int",    "default": 0     }
+      },
+      "effects": [
+        {
+          "trigger": "on_play",
+          "type": "deal_damage",
+          "params": { "target": "opponent", "amount": "attr:damage" }
+        }
+      ]
+    }
+  ],
+
+  "cards": [
+    {
+      "id": "fireball",
+      "type": "Spell",
+      "attributes": { "name": "Fireball", "cost": 3, "damage": 5 }
+    },
+    {
+      "id": "dragon",
+      "type": "Creature",
+      "attributes": { "name": "Fire Dragon", "cost": 5, "attack": 5, "defense": 4 }
+    }
+  ],
+
+  "deck_types": [
+    {
+      "name": "StandardDeck",
+      "allowed_card_types": ["Creature", "Spell"],
+      "min_cards": 10,
+      "max_cards": 60,
+      "max_copies": 4
+    }
+  ],
+
+  "phases": [
+    { "name": "Draw",   "type": "draw",   "draw_count": 1 },
+    { "name": "Main",   "type": "action"                  },
+    { "name": "Combat", "type": "combat"                  },
+    { "name": "End",    "type": "end"                     }
+  ]
+}
