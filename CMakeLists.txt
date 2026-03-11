@@ -36,17 +36,29 @@ target_include_directories(engine
     PRIVATE ${CMAKE_BINARY_DIR}/include
 )
 
-add_executable(basic_example examples/basic/main.cpp)
-target_link_libraries(basic_example PRIVATE engine)
-target_include_directories(basic_example PRIVATE ${CMAKE_BINARY_DIR}/include)
+# --- deckz CLI tool ---
+if(WIN32)
+    set(DECKZ_PLATFORM_LIBS "-lkernel32 -luser32 -lgdi32 -lwinspool -lshell32 -lole32 -loleaut32 -luuid -lcomdlg32 -ladvapi32")
+else()
+    set(DECKZ_PLATFORM_LIBS "")
+endif()
+
+configure_file(
+    tools/deckz/deckz_config.h.in
+    ${CMAKE_BINARY_DIR}/deckz_config.h
+)
+
+add_executable(deckz tools/deckz/main.cpp)
+target_link_libraries(deckz PRIVATE engine ui)
+target_include_directories(deckz PRIVATE
+    include
+    ${CMAKE_BINARY_DIR}/include
+    ${CMAKE_BINARY_DIR}
+)
 
 add_library(ui src/ui/TerminalUI.cpp)
 target_link_libraries(ui PUBLIC engine)
 target_include_directories(ui PUBLIC include)
-
-add_executable(terminal_game examples/terminal/main.cpp)
-target_link_libraries(terminal_game PRIVATE ui)
-target_include_directories(terminal_game PRIVATE ${CMAKE_BINARY_DIR}/include)
 
 # --- Tests ---
 FetchContent_Declare(

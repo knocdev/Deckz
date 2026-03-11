@@ -19,10 +19,15 @@ struct CardDefinition {
     std::unordered_map<std::string, AttributeValue> attributes;
 };
 
+struct DeckEntry {
+    std::string cardId;
+    int         count = 1;
+};
+
 struct PlayerDefinition {
-    std::string              name;
-    std::string              deckTypeName;
-    std::vector<std::string> cardIds;
+    std::string           name;
+    std::string           deckTypeName;
+    std::vector<DeckEntry> deckEntries;
     std::unordered_map<std::string, int> startingResources;
 };
 
@@ -42,6 +47,7 @@ struct WinConditionDefinition {
 class Registry {
 public:
     void loadFromFile(const std::string& path);
+    void loadFromString(const std::string& json);
 
     // --- Type accessors ---
     const CardType& cardType(const std::string& name) const;

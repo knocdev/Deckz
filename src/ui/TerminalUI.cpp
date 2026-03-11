@@ -24,8 +24,11 @@ TerminalUI::TerminalUI(Game& game) : m_game(game) {
 
 void TerminalUI::run() {
     while (!m_game.isOver()) {
-        const Phase& phase = m_game.state().turnEngine().currentPhase();
-        if (phase.type == PhaseType::Action || phase.type == PhaseType::Custom)
+        const Phase& phase  = m_game.state().turnEngine().currentPhase();
+        const Player& active = m_game.state().turnEngine().currentPlayer();
+        bool canAct = (phase.type == PhaseType::Action || phase.type == PhaseType::Custom)
+                   && !active.hand().empty();
+        if (canAct)
             interactivePhase();
         else
             autoPhase();

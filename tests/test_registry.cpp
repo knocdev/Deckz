@@ -3,8 +3,33 @@
 
 using namespace engine;
 
-// Path is relative to where the test binary is run (project root)
-static const std::string CONFIG = "examples/basic/config.json";
+static const std::string CONFIG = R"JSON({
+  "card_types": [
+    {
+      "name": "Creature",
+      "attributes": {
+        "attack":  { "type": "int", "default": 0 },
+        "defense": { "type": "int", "default": 0 },
+        "cost":    { "type": "int", "default": 0 }
+      }
+    },
+    {
+      "name": "Spell",
+      "attributes": {
+        "cost": { "type": "int", "default": 0 }
+      }
+    }
+  ],
+  "deck_types": [
+    { "name": "StandardDeck", "min_cards": 0, "max_cards": 60 }
+  ],
+  "phases": [
+    { "name": "Draw",   "type": "draw", "draw_count": 1 },
+    { "name": "Main",   "type": "action" },
+    { "name": "Combat", "type": "combat" },
+    { "name": "End",    "type": "end" }
+  ]
+})JSON";
 
 // ---------------------------------------------------------------------------
 // Registry tests
@@ -12,7 +37,7 @@ static const std::string CONFIG = "examples/basic/config.json";
 
 TEST(RegistryTest, LoadsCardTypes) {
     Registry reg;
-    reg.loadFromFile(CONFIG);
+    reg.loadFromString(CONFIG);
 
     EXPECT_TRUE(reg.hasCardType("Creature"));
     EXPECT_TRUE(reg.hasCardType("Spell"));
@@ -20,14 +45,14 @@ TEST(RegistryTest, LoadsCardTypes) {
 
 TEST(RegistryTest, LoadsDeckTypes) {
     Registry reg;
-    reg.loadFromFile(CONFIG);
+    reg.loadFromString(CONFIG);
 
     EXPECT_TRUE(reg.hasDeckType("StandardDeck"));
 }
 
 TEST(RegistryTest, LoadsPhases) {
     Registry reg;
-    reg.loadFromFile(CONFIG);
+    reg.loadFromString(CONFIG);
 
     const auto& phases = reg.phases();
     ASSERT_EQ(phases.size(), 4u);
@@ -41,7 +66,7 @@ TEST(RegistryTest, LoadsPhases) {
 
 TEST(RegistryTest, CardTypeHasExpectedAttributes) {
     Registry reg;
-    reg.loadFromFile(CONFIG);
+    reg.loadFromString(CONFIG);
 
     const auto& ct = reg.cardType("Creature");
     EXPECT_TRUE(ct.hasAttribute("attack"));
@@ -52,7 +77,7 @@ TEST(RegistryTest, CardTypeHasExpectedAttributes) {
 
 TEST(RegistryTest, CreateCardWithDefaults) {
     Registry reg;
-    reg.loadFromFile(CONFIG);
+    reg.loadFromString(CONFIG);
 
     auto card = reg.createCard("hero_001", "Creature");
     ASSERT_NE(card, nullptr);
@@ -63,7 +88,7 @@ TEST(RegistryTest, CreateCardWithDefaults) {
 
 TEST(RegistryTest, CreateDeck) {
     Registry reg;
-    reg.loadFromFile(CONFIG);
+    reg.loadFromString(CONFIG);
 
     auto deck = reg.createDeck("PlayerDeck", "StandardDeck");
     ASSERT_NE(deck, nullptr);
@@ -73,13 +98,13 @@ TEST(RegistryTest, CreateDeck) {
 
 TEST(RegistryTest, UnknownCardTypeThrows) {
     Registry reg;
-    reg.loadFromFile(CONFIG);
+    reg.loadFromString(CONFIG);
     EXPECT_THROW(reg.cardType("NoSuchType"), std::out_of_range);
 }
 
 TEST(RegistryTest, UnknownDeckTypeThrows) {
     Registry reg;
-    reg.loadFromFile(CONFIG);
+    reg.loadFromString(CONFIG);
     EXPECT_THROW(reg.deckType("NoSuchDeck"), std::out_of_range);
 }
 

@@ -13,7 +13,11 @@ namespace engine {
 // High-level facade: load config → add players → start → submit actions
 class Game {
 public:
+    Game();  // no config — call loadFromString() or loadFromFile() before start()
     explicit Game(const std::string& configPath);
+
+    void loadFromString(const std::string& jsonStr);
+    void loadFromFile(const std::string& path);
 
     // --- Setup (call before start()) ---
     void registerEffect(const std::string& typeName, EffectFactory factory);
@@ -44,9 +48,9 @@ private:
     ActionValidator m_validator;
 
     struct PlayerSetup {
-        std::string              name;
-        std::string              deckTypeName;
-        std::vector<std::string> cardIds;
+        std::string            name;
+        std::string            deckTypeName;
+        std::vector<DeckEntry> deckEntries;
     };
 
     std::vector<PlayerSetup>             m_playerSetups;

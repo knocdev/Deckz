@@ -8,8 +8,7 @@
 
 namespace engine {
 
-Game::Game(const std::string& configPath) {
-    m_registry.loadFromFile(configPath);
+Game::Game() {
     m_effectRegistry.registerBuiltins();
 
     // trigger_card_effects: fires a card's own effects for the given trigger
@@ -36,6 +35,18 @@ Game::Game(const std::string& configPath) {
         });
 }
 
+Game::Game(const std::string& configPath) : Game() {
+    m_registry.loadFromFile(configPath);
+}
+
+void Game::loadFromString(const std::string& jsonStr) {
+    m_registry.loadFromString(jsonStr);
+}
+
+void Game::loadFromFile(const std::string& path) {
+    m_registry.loadFromFile(path);
+}
+
 void Game::registerEffect(const std::string& typeName, EffectFactory factory) {
     m_effectRegistry.registerEffect(typeName, std::move(factory));
 }
@@ -47,14 +58,18 @@ void Game::addWinCondition(GameState::WinCondition condition) {
 void Game::addPlayer(const std::string& playerName,
                      const std::string& deckTypeName,
                      const std::vector<std::string>& cardIds) {
-    m_playerSetups.push_back({ playerName, deckTypeName, cardIds });
+    std::vector<DeckEntry> entries;
+    entries.reserve(cardIds.size());
+    for (const auto& id : cardIds)
+        entries.push_back({ id, 1 });
+    m_playerSetups.push_back({ playerName, deckTypeName, std::move(entries) });
 }
 
 void Game::start() {
     // Merge JSON players with any programmatically added ones
     auto allSetups = m_playerSetups;
     for (const auto& pd : m_registry.players())
-        allSetups.push_back({ pd.name, pd.deckTypeName, pd.cardIds });
+        allSetups.push_back({ pd.name, pd.deckTypeName, pd.deckEntries });
 
     if (allSetups.empty())
         throw std::runtime_error("Game::start() called with no players");
@@ -63,8 +78,11 @@ void Game::start() {
 
     for (const auto& setup : allSetups) {
         auto deck = m_registry.createDeck(setup.name + "_deck", setup.deckTypeName);
-        for (const auto& cardId : setup.cardIds)
-            deck->addCard(m_registry.createCard(cardId, m_registry.cardIdToTypeName(cardId)));
+        for (const auto& entry : setup.deckEntries) {
+            const std::string typeName = m_registry.cardIdToTypeName(entry.cardId);
+            for (int i = 0; i < entry.count; ++i)
+                deck->addCard(m_registry.createCard(entry.cardId, typeName));
+        }
         players.push_back(std::make_unique<Player>(setup.name, std::move(deck)));
     }
 

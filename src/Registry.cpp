@@ -93,7 +93,10 @@ static void parsePlayers(const json& j, std::vector<PlayerDefinition>& out) {
         PlayerDefinition def;
         def.name         = p.at("name").get<std::string>();
         def.deckTypeName = p.at("deck_type").get<std::string>();
-        def.cardIds      = p.at("cards").get<std::vector<std::string>>();
+        if (p.contains("deck"))
+            for (const auto& entry : p["deck"])
+                def.deckEntries.push_back({ entry.at("card").get<std::string>(),
+                                            entry.value("count", 1) });
         if (p.contains("starting_resources"))
             for (const auto& [k, v] : p["starting_resources"].items())
                 def.startingResources[k] = v.get<int>();
@@ -216,24 +219,45 @@ static void parseCards(const json& j,
 // Public interface
 // ---------------------------------------------------------------------------
 
+static void applyJson(const json& j,
+                       std::unordered_map<std::string, CardType>&       cardTypes,
+                       std::unordered_map<std::string, DeckType>&       deckTypes,
+                       std::unordered_map<std::string, CardDefinition>& cardDefs,
+                       std::vector<Phase>&                               phases,
+                       std::vector<EffectDefinition>&                    tsEffects,
+                       std::vector<EffectDefinition>&                    teEffects,
+                       std::vector<PlayerDefinition>&                    players,
+                       std::vector<RuleDefinition>&                      globalRules,
+                       std::unordered_map<std::string, std::vector<RuleDefinition>>&   actionRules,
+                       std::vector<WinConditionDefinition>&              winConds,
+                       std::unordered_map<std::string, std::vector<EffectDefinition>>& actionEffects) {
+    if (j.contains("card_types"))         parseCardTypes(j["card_types"], cardTypes);
+    if (j.contains("deck_types"))         parseDeckTypes(j["deck_types"], deckTypes);
+    if (j.contains("phases"))             parsePhases(j["phases"], phases);
+    if (j.contains("cards"))             parseCards(j["cards"], cardTypes, cardDefs);
+    if (j.contains("turn_start_effects")) parseTurnEffects(j["turn_start_effects"], tsEffects);
+    if (j.contains("turn_end_effects"))   parseTurnEffects(j["turn_end_effects"],   teEffects);
+    if (j.contains("players"))           parsePlayers(j["players"], players);
+    if (j.contains("rules"))             parseRules(j["rules"], globalRules, actionRules);
+    if (j.contains("win_conditions"))    parseWinConditions(j["win_conditions"], winConds);
+    if (j.contains("actions"))           parseActions(j["actions"], actionEffects);
+}
+
 void Registry::loadFromFile(const std::string& path) {
     std::ifstream file(path);
     if (!file.is_open())
         throw std::runtime_error("Could not open config file: " + path);
-
     json j;
     file >> j;
+    applyJson(j, m_cardTypes, m_deckTypes, m_cardDefinitions, m_phases,
+              m_turnStartEffects, m_turnEndEffects, m_players,
+              m_globalRules, m_actionRules, m_winConditions, m_actionEffects);
+}
 
-    if (j.contains("card_types"))         parseCardTypes(j["card_types"], m_cardTypes);
-    if (j.contains("deck_types"))         parseDeckTypes(j["deck_types"], m_deckTypes);
-    if (j.contains("phases"))             parsePhases(j["phases"], m_phases);
-    if (j.contains("cards"))             parseCards(j["cards"], m_cardTypes, m_cardDefinitions);
-    if (j.contains("turn_start_effects")) parseTurnEffects(j["turn_start_effects"], m_turnStartEffects);
-    if (j.contains("turn_end_effects"))   parseTurnEffects(j["turn_end_effects"],   m_turnEndEffects);
-    if (j.contains("players"))           parsePlayers(j["players"], m_players);
-    if (j.contains("rules"))             parseRules(j["rules"], m_globalRules, m_actionRules);
-    if (j.contains("win_conditions"))    parseWinConditions(j["win_conditions"], m_winConditions);
-    if (j.contains("actions"))           parseActions(j["actions"], m_actionEffects);
+void Registry::loadFromString(const std::string& jsonStr) {
+    applyJson(json::parse(jsonStr), m_cardTypes, m_deckTypes, m_cardDefinitions, m_phases,
+              m_turnStartEffects, m_turnEndEffects, m_players,
+              m_globalRules, m_actionRules, m_winConditions, m_actionEffects);
 }
 
 const std::vector<RuleDefinition>& Registry::actionRules(const std::string& actionType) const {
