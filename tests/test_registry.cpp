@@ -1,5 +1,6 @@
 #include <gtest/gtest.h>
 #include "engine/Registry.h"
+#include "engine/Game.h"
 
 using namespace engine;
 
@@ -111,4 +112,108 @@ TEST(RegistryTest, UnknownDeckTypeThrows) {
 TEST(RegistryTest, MissingFileThrows) {
     Registry reg;
     EXPECT_THROW(reg.loadFromFile("nonexistent.json"), std::runtime_error);
+}
+
+// ---------------------------------------------------------------------------
+// Deck entry (count-based) tests
+// ---------------------------------------------------------------------------
+
+static const std::string DECK_ENTRY_CONFIG = R"JSON({
+  "card_types": [
+    {
+      "name": "Spell",
+      "attributes": {
+        "cost": { "type": "int", "default": 1 }
+      }
+    }
+  ],
+  "deck_types": [
+    { "name": "TestDeck", "min_cards": 0, "max_cards": 30 }
+  ],
+  "phases": [
+    { "name": "Draw", "type": "draw" },
+    { "name": "End",  "type": "end"  }
+  ],
+  "cards": [
+    { "id": "fireball", "type": "Spell", "attributes": { "cost": 3 } },
+    { "id": "lightning", "type": "Spell", "attributes": { "cost": 2 } }
+  ],
+  "players": [
+    {
+      "name": "Alice",
+      "deck_type": "TestDeck",
+      "deck": [
+        { "card": "fireball",  "count": 3 },
+        { "card": "lightning", "count": 2 }
+      ],
+      "starting_resources": { "mana": 5 }
+    }
+  ],
+  "win_conditions": []
+})JSON";
+
+TEST(RegistryDeckEntryTest, LoadsPlayerDeckEntries) {
+    Registry reg;
+    reg.loadFromString(DECK_ENTRY_CONFIG);
+
+    const auto& players = reg.players();
+    ASSERT_EQ(players.size(), 1u);
+    EXPECT_EQ(players[0].name, "Alice");
+
+    const auto& entries = players[0].deckEntries;
+    ASSERT_EQ(entries.size(), 2u);
+    EXPECT_EQ(entries[0].cardId, "fireball");
+    EXPECT_EQ(entries[0].count,  3);
+    EXPECT_EQ(entries[1].cardId, "lightning");
+    EXPECT_EQ(entries[1].count,  2);
+}
+
+TEST(RegistryDeckEntryTest, DeckCountDefaultsToOne) {
+    Registry reg;
+    reg.loadFromString(R"JSON({
+      "card_types": [ { "name": "Spell", "attributes": { "cost": { "type": "int" } } } ],
+      "deck_types": [ { "name": "D", "min_cards": 0 } ],
+      "phases":     [ { "name": "End", "type": "end" } ],
+      "cards":      [ { "id": "bolt", "type": "Spell" } ],
+      "players": [
+        { "name": "Bob", "deck_type": "D", "deck": [ { "card": "bolt" } ] }
+      ]
+    })JSON");
+
+    const auto& entries = reg.players()[0].deckEntries;
+    ASSERT_EQ(entries.size(), 1u);
+    EXPECT_EQ(entries[0].count, 1);
+}
+
+TEST(RegistryDeckEntryTest, GameExpandsDeckCountsCorrectly) {
+    Game game;
+    game.loadFromString(DECK_ENTRY_CONFIG);
+    game.start();
+
+    Player* alice = game.state().findPlayer("Alice");
+    ASSERT_NE(alice, nullptr);
+    // 3x fireball + 2x lightning = 5 cards total in deck (draw phase hasn't fired yet)
+    EXPECT_EQ(alice->deck().size(), 5u);
+}
+
+TEST(RegistryDeckEntryTest, CardAttributesPreservedAcrossCopies) {
+    Game game;
+    game.loadFromString(DECK_ENTRY_CONFIG);
+    game.start();
+
+    Player* alice = game.state().findPlayer("Alice");
+    ASSERT_NE(alice, nullptr);
+
+    // Draw all cards into hand to inspect them
+    while (!alice->deck().empty())
+        alice->hand().addCard(alice->deck().drawTop());
+
+    int fireballCount = 0, lightningCount = 0;
+    for (const auto& card : alice->hand().cards()) {
+        int cost = std::get<int>(card->getAttribute("cost"));
+        if (cost == 3) fireballCount++;
+        if (cost == 2) lightningCount++;
+    }
+    EXPECT_EQ(fireballCount, 3);
+    EXPECT_EQ(lightningCount, 2);
 }
