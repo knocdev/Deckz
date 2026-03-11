@@ -39,5 +39,8 @@ namespace Effects {
     // params: resource (name), amount ("N" or "attr:key")
     EffectFactory loseResource();
 
+    // params: resource (name), value ("N" or "attr:key")
+    EffectFactory setResource();
+
 } // namespace Effects
 } // namespace engine

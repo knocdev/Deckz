@@ -27,6 +27,14 @@ void GameState::addWinCondition(WinCondition condition) {
 void GameState::step() {
     if (isOver()) return;
 
+    const Phase& phase = m_turnEngine->currentPhase();
+
+    if (phase.skipIfHandEmpty && m_turnEngine->currentPlayer().hand().empty()) {
+        checkWinConditions();
+        if (!isOver()) m_turnEngine->advancePhase();
+        return;
+    }
+
     m_turnEngine->executeCurrentPhase();
     checkWinConditions();
 

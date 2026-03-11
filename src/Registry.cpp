@@ -45,6 +45,17 @@ static std::string jsonToParamString(const json& j) {
 // Parsing
 // ---------------------------------------------------------------------------
 
+static EffectDefinition parseEffectDef(const json& eff) {
+    EffectDefinition def;
+    def.typeName = eff.at("type").get<std::string>();
+    if (eff.contains("trigger"))
+        def.trigger = effectTriggerFromString(eff.at("trigger").get<std::string>());
+    if (eff.contains("params"))
+        for (const auto& [k, v] : eff["params"].items())
+            def.params[k] = jsonToParamString(v);
+    return def;
+}
+
 static void parseCardTypes(const json& j,
                             std::unordered_map<std::string, CardType>& out) {
     for (const auto& ct : j) {
@@ -64,21 +75,84 @@ static void parseCardTypes(const json& j,
             }
         }
 
-        if (ct.contains("effects")) {
-            for (const auto& eff : ct["effects"]) {
-                EffectDefinition def;
-                def.typeName = eff.at("type").get<std::string>();
-                def.trigger  = effectTriggerFromString(eff.at("trigger").get<std::string>());
-                if (eff.contains("params")) {
-                    for (const auto& [k, v] : eff["params"].items()) {
-                        def.params[k] = jsonToParamString(v);
-                    }
-                }
-                cardType.addEffect(std::move(def));
-            }
-        }
+        if (ct.contains("effects"))
+            for (const auto& eff : ct["effects"])
+                cardType.addEffect(parseEffectDef(eff));
 
         out.emplace(name, std::move(cardType));
+    }
+}
+
+static void parseTurnEffects(const json& j, std::vector<EffectDefinition>& out) {
+    for (const auto& eff : j)
+        out.push_back(parseEffectDef(eff));
+}
+
+static void parsePlayers(const json& j, std::vector<PlayerDefinition>& out) {
+    for (const auto& p : j) {
+        PlayerDefinition def;
+        def.name         = p.at("name").get<std::string>();
+        def.deckTypeName = p.at("deck_type").get<std::string>();
+        if (p.contains("deck"))
+            for (const auto& entry : p["deck"])
+                def.deckEntries.push_back({ entry.at("card").get<std::string>(),
+                                            entry.value("count", 1) });
+        if (p.contains("starting_resources"))
+            for (const auto& [k, v] : p["starting_resources"].items())
+                def.startingResources[k] = v.get<int>();
+        out.push_back(std::move(def));
+    }
+}
+
+static RuleDefinition parseRuleDef(const json& r) {
+    RuleDefinition def;
+    def.typeName = r.at("type").get<std::string>();
+    if (r.contains("allowed")) {
+        // join array of strings as comma-separated
+        std::string joined;
+        for (const auto& s : r["allowed"]) {
+            if (!joined.empty()) joined += ',';
+            joined += s.get<std::string>();
+        }
+        def.params["allowed"] = joined;
+    }
+    for (const auto& [k, v] : r.items()) {
+        if (k == "type" || k == "allowed") continue;
+        def.params[k] = jsonToParamString(v);
+    }
+    return def;
+}
+
+static void parseRules(const json& j,
+                        std::vector<RuleDefinition>& globalOut,
+                        std::unordered_map<std::string, std::vector<RuleDefinition>>& actionOut) {
+    if (j.contains("global"))
+        for (const auto& r : j["global"])
+            globalOut.push_back(parseRuleDef(r));
+    for (const auto& [key, arr] : j.items()) {
+        if (key == "global") continue;
+        for (const auto& r : arr)
+            actionOut[key].push_back(parseRuleDef(r));
+    }
+}
+
+static void parseActions(const json& j,
+                          std::unordered_map<std::string, std::vector<EffectDefinition>>& out) {
+    for (const auto& [actionName, def] : j.items())
+        if (def.contains("effects"))
+            for (const auto& eff : def["effects"])
+                out[actionName].push_back(parseEffectDef(eff));
+}
+
+static void parseWinConditions(const json& j, std::vector<WinConditionDefinition>& out) {
+    for (const auto& w : j) {
+        WinConditionDefinition def;
+        def.typeName = w.at("type").get<std::string>();
+        for (const auto& [k, v] : w.items()) {
+            if (k == "type") continue;
+            def.params[k] = jsonToParamString(v);
+        }
+        out.push_back(std::move(def));
     }
 }
 
@@ -106,6 +180,8 @@ static void parsePhases(const json& j, std::vector<Phase>& out) {
         phase.type = phaseTypeFromString(p.at("type").get<std::string>());
         if (p.contains("draw_count"))
             phase.drawCount = p["draw_count"].get<int>();
+        if (p.contains("skip_if_hand_empty"))
+            phase.skipIfHandEmpty = p["skip_if_hand_empty"].get<bool>();
         out.push_back(std::move(phase));
     }
 }
@@ -143,18 +219,57 @@ static void parseCards(const json& j,
 // Public interface
 // ---------------------------------------------------------------------------
 
+static void applyJson(const json& j,
+                       std::unordered_map<std::string, CardType>&       cardTypes,
+                       std::unordered_map<std::string, DeckType>&       deckTypes,
+                       std::unordered_map<std::string, CardDefinition>& cardDefs,
+                       std::vector<Phase>&                               phases,
+                       std::vector<EffectDefinition>&                    tsEffects,
+                       std::vector<EffectDefinition>&                    teEffects,
+                       std::vector<PlayerDefinition>&                    players,
+                       std::vector<RuleDefinition>&                      globalRules,
+                       std::unordered_map<std::string, std::vector<RuleDefinition>>&   actionRules,
+                       std::vector<WinConditionDefinition>&              winConds,
+                       std::unordered_map<std::string, std::vector<EffectDefinition>>& actionEffects) {
+    if (j.contains("card_types"))         parseCardTypes(j["card_types"], cardTypes);
+    if (j.contains("deck_types"))         parseDeckTypes(j["deck_types"], deckTypes);
+    if (j.contains("phases"))             parsePhases(j["phases"], phases);
+    if (j.contains("cards"))             parseCards(j["cards"], cardTypes, cardDefs);
+    if (j.contains("turn_start_effects")) parseTurnEffects(j["turn_start_effects"], tsEffects);
+    if (j.contains("turn_end_effects"))   parseTurnEffects(j["turn_end_effects"],   teEffects);
+    if (j.contains("players"))           parsePlayers(j["players"], players);
+    if (j.contains("rules"))             parseRules(j["rules"], globalRules, actionRules);
+    if (j.contains("win_conditions"))    parseWinConditions(j["win_conditions"], winConds);
+    if (j.contains("actions"))           parseActions(j["actions"], actionEffects);
+}
+
 void Registry::loadFromFile(const std::string& path) {
     std::ifstream file(path);
     if (!file.is_open())
         throw std::runtime_error("Could not open config file: " + path);
-
     json j;
     file >> j;
+    applyJson(j, m_cardTypes, m_deckTypes, m_cardDefinitions, m_phases,
+              m_turnStartEffects, m_turnEndEffects, m_players,
+              m_globalRules, m_actionRules, m_winConditions, m_actionEffects);
+}
 
-    if (j.contains("card_types"))  parseCardTypes(j["card_types"], m_cardTypes);
-    if (j.contains("deck_types"))  parseDeckTypes(j["deck_types"], m_deckTypes);
-    if (j.contains("phases"))      parsePhases(j["phases"], m_phases);
-    if (j.contains("cards"))       parseCards(j["cards"], m_cardTypes, m_cardDefinitions);
+void Registry::loadFromString(const std::string& jsonStr) {
+    applyJson(json::parse(jsonStr), m_cardTypes, m_deckTypes, m_cardDefinitions, m_phases,
+              m_turnStartEffects, m_turnEndEffects, m_players,
+              m_globalRules, m_actionRules, m_winConditions, m_actionEffects);
+}
+
+const std::vector<RuleDefinition>& Registry::actionRules(const std::string& actionType) const {
+    static const std::vector<RuleDefinition> empty;
+    auto it = m_actionRules.find(actionType);
+    return it != m_actionRules.end() ? it->second : empty;
+}
+
+const std::vector<EffectDefinition>& Registry::actionEffects(const std::string& actionType) const {
+    static const std::vector<EffectDefinition> empty;
+    auto it = m_actionEffects.find(actionType);
+    return it != m_actionEffects.end() ? it->second : empty;
 }
 
 const CardType& Registry::cardType(const std::string& name) const {

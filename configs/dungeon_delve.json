@@ -1,0 +1,96 @@
+{
+  "card_types": [
+    {
+      "name": "Attack",
+      "attributes": {
+        "name":   { "type": "string", "default": "" },
+        "cost":   { "type": "int",    "default": 1  },
+        "damage": { "type": "int",    "default": 0  }
+      },
+      "effects": [
+        { "trigger": "on_play", "type": "lose_resource", "params": { "resource": "mana",     "amount": "attr:cost"   } },
+        { "trigger": "on_play", "type": "deal_damage",   "params": { "target": "opponent",   "amount": "attr:damage" } }
+      ]
+    },
+    {
+      "name": "Heal",
+      "attributes": {
+        "name":    { "type": "string", "default": "" },
+        "cost":    { "type": "int",    "default": 1  },
+        "restore": { "type": "int",    "default": 0  }
+      },
+      "effects": [
+        { "trigger": "on_play", "type": "lose_resource", "params": { "resource": "mana",   "amount": "attr:cost"    } },
+        { "trigger": "on_play", "type": "gain_resource", "params": { "resource": "health", "amount": "attr:restore" } }
+      ]
+    }
+  ],
+
+  "deck_types": [
+    { "name": "HeroDeck",   "allowed_card_types": ["Attack", "Heal"], "min_cards": 1, "max_cards": 30 },
+    { "name": "DragonDeck", "min_cards": 0, "max_cards": 0 }
+  ],
+
+  "phases": [
+    { "name": "Draw",   "type": "draw",   "draw_count": 2 },
+    { "name": "Action", "type": "action"                  },
+    { "name": "End",    "type": "end"                     }
+  ],
+
+  "turn_start_effects": [
+    { "type": "set_resource", "params": { "resource": "mana",     "value":  "3" } },
+    { "type": "deal_damage",  "params": { "target": "opponent",   "amount": "6" } }
+  ],
+
+  "cards": [
+    { "id": "slash",    "type": "Attack", "attributes": { "name": "Slash",    "cost": 1, "damage":  5 } },
+    { "id": "strike",   "type": "Attack", "attributes": { "name": "Strike",   "cost": 2, "damage": 11 } },
+    { "id": "sunder",   "type": "Attack", "attributes": { "name": "Sunder",   "cost": 3, "damage": 18 } },
+    { "id": "mend",     "type": "Heal",   "attributes": { "name": "Mend",     "cost": 1, "restore": 6  } },
+    { "id": "potion",   "type": "Heal",   "attributes": { "name": "Potion",   "cost": 2, "restore": 14 } }
+  ],
+
+  "players": [
+    {
+      "name": "Hero",
+      "deck_type": "HeroDeck",
+      "deck": [
+        { "card": "slash",  "count": 5 },
+        { "card": "strike", "count": 3 },
+        { "card": "sunder", "count": 2 },
+        { "card": "mend",   "count": 3 },
+        { "card": "potion", "count": 2 }
+      ],
+      "starting_resources": { "health": 25, "mana": 3 }
+    },
+    {
+      "name": "Dragon",
+      "deck_type": "DragonDeck",
+      "deck": [],
+      "starting_resources": { "health": 80 }
+    }
+  ],
+
+  "rules": {
+    "play_card": [
+      { "type": "actor_not_null"      },
+      { "type": "is_current_player"   },
+      { "type": "hand_index_in_range" },
+      { "type": "phase_type", "allowed": ["action"] },
+      { "type": "has_enough_resource", "resource": "mana", "cost_attribute": "cost" }
+    ]
+  },
+
+  "win_conditions": [
+    { "type": "resource_depleted", "resource": "health", "result": "opponent_wins" }
+  ],
+
+  "actions": {
+    "play_card": {
+      "effects": [
+        { "type": "trigger_card_effects", "params": { "trigger": "on_play" } },
+        { "type": "remove_from_hand" }
+      ]
+    }
+  }
+}

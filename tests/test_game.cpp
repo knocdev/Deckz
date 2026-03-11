@@ -3,12 +3,54 @@
 
 using namespace engine;
 
-static const std::string CONFIG = "examples/basic/config.json";
+static const std::string CONFIG = R"JSON({
+  "card_types": [
+    {
+      "name": "Creature",
+      "attributes": {
+        "attack":  { "type": "int", "default": 0 },
+        "defense": { "type": "int", "default": 0 },
+        "cost":    { "type": "int", "default": 0 }
+      }
+    },
+    {
+      "name": "Spell",
+      "attributes": {
+        "cost": { "type": "int", "default": 0 }
+      },
+      "effects": [
+        { "trigger": "on_play", "type": "lose_resource", "params": { "resource": "mana", "amount": "attr:cost" } }
+      ]
+    }
+  ],
+  "deck_types": [
+    { "name": "StandardDeck", "min_cards": 0, "max_cards": 60 }
+  ],
+  "phases": [
+    { "name": "Draw",   "type": "draw", "draw_count": 1 },
+    { "name": "Main",   "type": "action" },
+    { "name": "Combat", "type": "combat" },
+    { "name": "End",    "type": "end" }
+  ],
+  "cards": [
+    { "id": "fireball", "type": "Spell",    "attributes": { "cost": 2 } },
+    { "id": "dragon",   "type": "Creature", "attributes": { "attack": 5, "defense": 3, "cost": 4 } }
+  ],
+  "actions": {
+    "play_card": {
+      "effects": [
+        { "type": "trigger_card_effects", "params": { "trigger": "on_play" } },
+        { "type": "remove_from_hand" }
+      ]
+    }
+  }
+})JSON";
 
 class GameTest : public ::testing::Test {
 protected:
     void SetUp() override {
-        game = std::make_unique<Game>(CONFIG);
+        game = std::make_unique<Game>();
+        game->loadFromString(CONFIG);
 
         // Standard rules: must be your turn, in Action phase, hand not empty, enough mana
         game->validator().addGlobalRule(Rules::actorNotNull());
@@ -21,7 +63,6 @@ protected:
         game->addWinCondition([](const GameState& state) -> WinCheckResult {
             for (const auto& p : state.players()) {
                 if (p->hasResource("health") && p->getResource("health") <= 0) {
-                    // find the opponent
                     for (const auto& other : state.players()) {
                         if (other.get() != p.get())
                             return { true, other.get() };

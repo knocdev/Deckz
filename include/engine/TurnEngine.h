@@ -40,11 +40,11 @@ public:
     // Signal that the game has ended
     void endGame() { m_gameOver = true; }
 
-    // --- Callbacks (all optional) ---
-    void onPhaseStart(std::function<void(const PhaseEvent&)> cb) { m_onPhaseStart = std::move(cb); }
-    void onPhaseEnd  (std::function<void(const PhaseEvent&)> cb) { m_onPhaseEnd   = std::move(cb); }
-    void onTurnStart (std::function<void(Player&, int)>      cb) { m_onTurnStart  = std::move(cb); }
-    void onTurnEnd   (std::function<void(Player&, int)>      cb) { m_onTurnEnd    = std::move(cb); }
+    // --- Callbacks (all optional, multiple listeners supported) ---
+    void onPhaseStart(std::function<void(const PhaseEvent&)> cb) { m_onPhaseStart.push_back(std::move(cb)); }
+    void onPhaseEnd  (std::function<void(const PhaseEvent&)> cb) { m_onPhaseEnd  .push_back(std::move(cb)); }
+    void onTurnStart (std::function<void(Player&, int)>      cb) { m_onTurnStart .push_back(std::move(cb)); }
+    void onTurnEnd   (std::function<void(Player&, int)>      cb) { m_onTurnEnd   .push_back(std::move(cb)); }
 
 private:
     std::vector<Phase>        m_phases;
@@ -55,10 +55,10 @@ private:
     int    m_turnNumber  = 1;
     bool   m_gameOver    = false;
 
-    std::function<void(const PhaseEvent&)> m_onPhaseStart;
-    std::function<void(const PhaseEvent&)> m_onPhaseEnd;
-    std::function<void(Player&, int)>      m_onTurnStart;
-    std::function<void(Player&, int)>      m_onTurnEnd;
+    std::vector<std::function<void(const PhaseEvent&)>> m_onPhaseStart;
+    std::vector<std::function<void(const PhaseEvent&)>> m_onPhaseEnd;
+    std::vector<std::function<void(Player&, int)>>      m_onTurnStart;
+    std::vector<std::function<void(Player&, int)>>      m_onTurnEnd;
 
     void firePhaseStart();
     void firePhaseEnd();

@@ -25,7 +25,8 @@ inline PhaseType phaseTypeFromString(const std::string& s) {
 struct Phase {
     std::string name;
     PhaseType   type;
-    int         drawCount = 1; // only used when type == Draw
+    int         drawCount       = 1;    // only used when type == Draw
+    bool        skipIfHandEmpty = false; // auto-skip this phase if player's hand is empty
 };
 
 } // namespace engine
